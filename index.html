@@ -1,0 +1,1024 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NFL Touchdown League (Week 1 through Super Bowl)</title>
+    <style>
+        :root {
+            --primary: #013369;
+            --secondary: #d50a0a;
+            --accent: #2b6cb0;
+            --bg: #f4f6f9;
+            --card-bg: #ffffff;
+            --text: #1a1a1a;
+            --warning: #dd6b20;
+            --danger: #e53e3e;
+            --bye: #718096;
+        }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: var(--bg); color: var(--text); margin: 0; padding: 20px; }
+        h1, h2, h3 { color: var(--primary); margin-top: 0; }
+        .container { max-width: 1200px; margin: 0 auto; }
+        .card { background: var(--card-bg); padding: 20px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.08); margin-bottom: 20px; }
+        .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+        .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
+        .grid-4 { display: grid; grid-template-columns: repeat(auto-fit, minmax(270px, 1fr)); gap: 15px; }
+        select, input, button { padding: 10px; border-radius: 6px; border: 1px solid #ccc; font-size: 14px; margin-bottom: 10px; width: 100%; box-sizing: border-box; }
+        button { background-color: var(--primary); color: white; border: none; cursor: pointer; font-weight: bold; transition: background 0.2s; }
+        button:hover { background-color: #002244; }
+        button.sync-btn { background-color: var(--accent); }
+        button.sync-btn:hover { background-color: #1a4971; }
+        button.danger { background-color: var(--secondary); }
+        button.danger:hover { background-color: #990000; }
+        button:disabled { background-color: #a0aec0 !important; cursor: not-allowed !important; opacity: 0.6; }
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+        th, td { border: 1px solid #e2e8f0; padding: 10px; text-align: left; }
+        th { background-color: #edf2f7; color: var(--primary); }
+        .badge { display: inline-block; padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: bold; color: white; }
+        .badge-qb { background-color: #e53e3e; }
+        .badge-rb { background-color: #319795; }
+        .badge-wr { background-color: #3182ce; }
+        .badge-te { background-color: #d69e2e; }
+        .badge-q { background-color: var(--warning); color: white; }
+        .badge-ir, .badge-out { background-color: var(--danger); color: white; }
+        .badge-d { background-color: #b7791f; color: white; }
+        .badge-bye { background-color: var(--bye); color: white; }
+        .player-item { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #eee; padding: 6px 0; }
+        .button-group { display: flex; gap: 10px; flex-wrap: wrap; }
+        .weekly-log-item { background: #f8fafc; border-left: 4px solid var(--accent); padding: 8px 12px; margin-bottom: 8px; font-size: 13px; }
+        .commish-bar { background: #edf2f7; padding: 12px 16px; border-radius: 6px; margin-bottom: 15px; display: flex; align-items: center; justify-content: space-between; border: 1px solid #cbd5e0; }
+        .pos-tracker { font-size: 11px; font-weight: bold; color: #4a5568; background: #edf2f7; padding: 4px 8px; border-radius: 4px; margin-bottom: 8px; display: flex; justify-content: space-between; }
+        .order-item { display: flex; align-items: center; justify-content: space-between; background: #f8fafc; border: 1px solid #e2e8f0; padding: 6px 12px; border-radius: 4px; margin-bottom: 6px; font-size: 13px; }
+        .order-btn-group { display: flex; gap: 4px; width: auto; }
+        .order-btn-group button { padding: 2px 8px; margin: 0; font-size: 12px; width: auto; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🏈 NFL Touchdown League (8-Player Weekly Redraft)</h1>
+
+        <div class="commish-bar">
+            <div>
+                <strong>Current Access Role:</strong> <span id="roleDisplay" style="font-weight: bold; color: #4a5568;">👤 Manager View</span>
+            </div>
+            <div style="width: auto;">
+                <button id="commishToggleBtn" onclick="toggleCommissionerMode()" style="width: auto; margin: 0; padding: 6px 14px; background-color: var(--accent);">👑 Enable Commissioner Access</button>
+            </div>
+        </div>
+
+        <div id="lockBanner"></div>
+
+        <div class="card">
+            <div class="grid-2">
+                <div>
+                    <h2>Active Stage: <span id="weekDisplay">Week 1</span></h2>
+                    <label for="weekSelect"><strong>Select Week / Playoff Stage:</strong></label>
+                    <select id="weekSelect" onchange="changeWeek()"></select>
+                </div>
+                <div>
+                    <h2>League Tools</h2>
+                    <div class="button-group">
+                        <button id="loadRostersBtn" onclick="fetchFullNflRosters()" style="background-color: #2b8a3e;">📥 Refresh Player Bank & Bye Weeks</button>
+                        <button id="syncBtn" class="sync-btn" onclick="syncEspnStats(true)">⚡ Sync Selected Week Stats (ESPN)</button>
+                    </div>
+                </div>
+            </div>
+            <div style="margin-top: 10px;">
+                <button id="finalizeBtn" class="danger" onclick="startNewWeek()" style="width: auto;">🔄 Finalize Week & Start Next Draft</button>
+            </div>
+            <div id="loadingStatus" style="font-size: 13px; font-weight: bold; color: #2b6cb0; margin-top: 8px;"></div>
+        </div>
+
+        <div class="card">
+            <h2>⚙️ Custom League Team Names & Manager Emails</h2>
+            <p style="font-size: 13px; color: #555; margin-bottom: 15px;">Edit team names and manager email addresses below. Use the buttons to quickly copy email lists or trigger weekly recap emails.</p>
+            <div class="grid-4" id="managerNameInputs"></div>
+            <div class="button-group" style="margin-top: 15px;">
+                <button onclick="copyManagerEmails()" style="background-color: var(--accent); width: auto;">📋 Copy All Manager Emails</button>
+                <button onclick="sendLeagueEmail()" style="background-color: #2b8a3e; width: auto;">✉️ Email Standings & Weekly Recap</button>
+            </div>
+        </div>
+
+        <div class="card">
+            <h2>Draft Room</h2>
+            <p style="font-size: 13px; color: #4a5568; margin-bottom: 12px;"><strong>Mandatory Roster Structure:</strong> 1 QB | 2 RB | 2 WR | 1 TE (6 Total Players per Team)</p>
+            
+            <div class="grid-2">
+                <div>
+                    <label for="managerSelect"><strong>Select Team / Manager Drafting (In Order):</strong></label>
+                    <select id="managerSelect"></select>
+                    
+                    <div style="margin-top: 15px; border-top: 1px solid #e2e8f0; padding-top: 12px;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                            <h3 style="font-size: 14px; margin: 0;">🎲 Active Draft Order</h3>
+                            <button id="randomizeOrderBtn" onclick="randomizeDraftOrder()" style="width: auto; padding: 4px 10px; font-size: 12px; margin: 0; background-color: var(--accent);">🔀 Randomize Order</button>
+                        </div>
+                        <div id="draftOrderList"></div>
+                    </div>
+                </div>
+
+                <div>
+                    <label><strong>Filter & Search Available Player Bank:</strong></label>
+                    <div class="grid-3">
+                        <select id="posFilter" onchange="renderPlayerBank()">
+                            <option value="ALL">All Positions</option>
+                            <option value="QB">QB Only</option>
+                            <option value="RB">RB Only</option>
+                            <option value="WR">WR Only</option>
+                            <option value="TE">TE Only</option>
+                        </select>
+                        <input type="text" id="searchInput" placeholder="Search name or team..." oninput="renderPlayerBank()" style="grid-column: span 2;">
+                    </div>
+                    <select id="playerBank">
+                        <option value="">-- Choose Player to Draft --</option>
+                    </select>
+                    <button id="draftBtn" onclick="draftPlayer()" style="margin-top: 10px;">Draft Selected Player</button>
+                </div>
+            </div>
+        </div>
+
+        <h2>Team Rosters & Active Scores</h2>
+        <div class="grid-4" id="rostersContainer"></div>
+
+        <div class="card" style="margin-top: 20px;">
+            <h2>📊 Overall Standings & Aggregate Touchdowns</h2>
+            <div style="overflow-x: auto;">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Rank</th>
+                            <th>Manager</th>
+                            <th>Pass TDs (0.5pt)</th>
+                            <th>Rush TDs (1.0pt)</th>
+                            <th>Rec TDs (1.0pt)</th>
+                            <th>Total TDs</th>
+                            <th>Total Points</th>
+                        </tr>
+                    </thead>
+                    <tbody id="leaderboardBody"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="card" style="margin-top: 20px;">
+            <h2>📜 Rolling Weekly Score Log</h2>
+            <div class="grid-4" id="weeklyHistoryContainer"></div>
+        </div>
+    </div>
+
+    <script>
+        const STORAGE_KEY = "nfl_td_league_data_v1";
+
+        const ALL_32_TEAMS = ["ARI","ATL","BAL","BUF","CAR","CHI","CIN","CLE","DAL","DEN","DET","GB","HOU","IND","JAX","KC","LV","LAC","LAR","MIA","MIN","NE","NO","NYG","NYJ","PHI","PIT","SF","SEA","TB","TEN","WSH"];
+
+        const POS_LIMITS = { QB: 1, RB: 2, WR: 2, TE: 1 };
+
+        const SEASON_STAGES = [
+            ...Array.from({length: 18}, (_, i) => ({ id: i + 1, name: `Week ${i + 1}`, type: 2, weekNum: i + 1 })),
+            { id: 19, name: "Wild Card Round", type: 3, weekNum: 1 },
+            { id: 20, name: "Divisional Round", type: 3, weekNum: 2 },
+            { id: 21, name: "Conference Championships", type: 3, weekNum: 3 },
+            { id: 22, name: "Super Bowl", type: 3, weekNum: 5 }
+        ];
+
+        let currentStageIndex = 0; 
+        let byeTeams = new Set();
+        let availablePlayers = [];
+        let isRosterLocked = false;
+        let firstKickoffTime = null;
+        let isCommissioner = false;
+
+        let draftOrder = [1, 2, 3, 4, 5, 6, 7, 8];
+
+        let managers = [
+            { id: 1, name: "Team 1", email: "", roster: [], weeklyHistory: [] },
+            { id: 2, name: "Team 2", email: "", roster: [], weeklyHistory: [] },
+            { id: 3, name: "Team 3", email: "", roster: [], weeklyHistory: [] },
+            { id: 4, name: "Team 4", email: "", roster: [], weeklyHistory: [] },
+            { id: 5, name: "Team 5", email: "", roster: [], weeklyHistory: [] },
+            { id: 6, name: "Team 6", email: "", roster: [], weeklyHistory: [] },
+            { id: 7, name: "Team 7", email: "", roster: [], weeklyHistory: [] },
+            { id: 8, name: "Team 8", email: "", roster: [], weeklyHistory: [] }
+        ];
+
+        function saveState() {
+            const dataToSave = {
+                currentStageIndex,
+                draftOrder,
+                managers,
+                isCommissioner
+            };
+            try {
+                localStorage.setItem(STORAGE_KEY, JSON.stringify(dataToSave));
+            } catch (e) {
+                console.error("Could not save league data to localStorage:", e);
+            }
+        }
+
+        function loadState() {
+            const savedData = localStorage.getItem(STORAGE_KEY);
+            if (!savedData) return;
+            try {
+                const parsed = JSON.parse(savedData);
+                if (typeof parsed.currentStageIndex === "number") currentStageIndex = parsed.currentStageIndex;
+                if (Array.isArray(parsed.draftOrder)) draftOrder = parsed.draftOrder;
+                if (Array.isArray(parsed.managers)) managers = parsed.managers;
+                if (typeof parsed.isCommissioner === "boolean") isCommissioner = parsed.isCommissioner;
+            } catch (e) {
+                console.error("Could not parse saved league data:", e);
+            }
+        }
+
+        async function init() {
+            loadState();
+            populateWeekDropdown();
+            renderManagerNameInputs();
+            populateManagerDropdown();
+            renderDraftOrderUI();
+            updateRoleUI();
+            await fetchFullNflRosters(true);
+            renderRosters();
+            renderLeaderboard();
+            renderWeeklyHistory();
+
+            setInterval(() => syncEspnStats(false), 120000);
+        }
+
+        function toggleCommissionerMode() {
+            if (!isCommissioner) {
+                const pin = prompt("Enter League Commissioner Passcode:", "");
+                if (pin === "0988") {
+                    isCommissioner = true;
+                    alert("👑 Commissioner Access Granted!");
+                } else if (pin !== null) {
+                    alert("❌ Incorrect Passcode!");
+                    return;
+                }
+            } else {
+                isCommissioner = false;
+                alert("👤 Switched to Manager Mode.");
+            }
+            saveState();
+            updateRoleUI();
+        }
+
+        function updateRoleUI() {
+            const roleDisplay = document.getElementById("roleDisplay");
+            const toggleBtn = document.getElementById("commishToggleBtn");
+            const loadRostersBtn = document.getElementById("loadRostersBtn");
+            const syncBtn = document.getElementById("syncBtn");
+            const finalizeBtn = document.getElementById("finalizeBtn");
+            const randomizeOrderBtn = document.getElementById("randomizeOrderBtn");
+
+            if (isCommissioner) {
+                roleDisplay.innerHTML = `<span style="color: #2b8a3e;">👑 Commissioner Mode (Unlocked)</span>`;
+                toggleBtn.innerText = "🔒 Lock / Exit Commish Mode";
+                toggleBtn.style.backgroundColor = "#718096";
+
+                loadRostersBtn.disabled = false;
+                syncBtn.disabled = false;
+                finalizeBtn.disabled = false;
+                if (randomizeOrderBtn) randomizeOrderBtn.disabled = false;
+
+                loadRostersBtn.title = "";
+                syncBtn.title = "";
+                finalizeBtn.title = "";
+            } else {
+                roleDisplay.innerHTML = `<span style="color: #4a5568;">👤 Manager View (Commissioner Tools Locked)</span>`;
+                toggleBtn.innerText = "👑 Enable Commissioner Access";
+                toggleBtn.style.backgroundColor = "var(--accent)";
+
+                loadRostersBtn.disabled = true;
+                syncBtn.disabled = true;
+                finalizeBtn.disabled = true;
+                if (randomizeOrderBtn) randomizeOrderBtn.disabled = true;
+
+                loadRostersBtn.title = "Requires Commissioner Access";
+                syncBtn.title = "Requires Commissioner Access";
+                finalizeBtn.title = "Requires Commissioner Access";
+            }
+            renderDraftOrderUI();
+            renderRosters();
+        }
+
+        function renderDraftOrderUI() {
+            const container = document.getElementById("draftOrderList");
+            if (!container) return;
+
+            container.innerHTML = draftOrder.map((mId, index) => {
+                const manager = managers.find(m => m.id === mId);
+                const name = manager ? manager.name : `Team ${mId}`;
+                const isFirst = index === 0;
+                const isLast = index === draftOrder.length - 1;
+
+                return `
+                    <div class="order-item">
+                        <div>
+                            <strong>Pick #${index + 1}:</strong> ${name}
+                        </div>
+                        <div class="order-btn-group">
+                            <button onclick="shiftDraftOrder(${index}, -1)" ${isFirst || !isCommissioner ? "disabled" : ""} title="Move Pick Up">▲</button>
+                            <button onclick="shiftDraftOrder(${index}, 1)" ${isLast || !isCommissioner ? "disabled" : ""} title="Move Pick Down">▼</button>
+                        </div>
+                    </div>
+                `;
+            }).join("");
+        }
+
+        function shiftDraftOrder(index, direction) {
+            if (!isCommissioner) {
+                alert("👑 Only the League Commissioner can alter the draft order.");
+                return;
+            }
+            const targetIndex = index + direction;
+            if (targetIndex < 0 || targetIndex >= draftOrder.length) return;
+
+            const temp = draftOrder[index];
+            draftOrder[index] = draftOrder[targetIndex];
+            draftOrder[targetIndex] = temp;
+
+            saveState();
+            renderDraftOrderUI();
+            populateManagerDropdown();
+        }
+
+        function randomizeDraftOrder() {
+            if (!isCommissioner) {
+                alert("👑 Only the League Commissioner can randomize the draft order.");
+                return;
+            }
+            if (!confirm("Are you sure you want to randomize the draft order for this stage?")) return;
+
+            for (let i = draftOrder.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [draftOrder[i], draftOrder[j]] = [draftOrder[j], draftOrder[i]];
+            }
+
+            saveState();
+            renderDraftOrderUI();
+            populateManagerDropdown();
+        }
+
+        function renderManagerNameInputs() {
+            const container = document.getElementById("managerNameInputs");
+            container.innerHTML = managers.map(m => `
+                <div style="background: #f8fafc; padding: 12px; border-radius: 6px; border: 1px solid #e2e8f0;">
+                    <label style="font-size: 12px; font-weight: bold; color: var(--primary);">Team #${m.id} Name:</label>
+                    <input type="text" value="${m.name}" placeholder="Enter Team Name" oninput="updateManagerName(${m.id}, this.value)" style="margin-bottom: 8px;">
+                    <label style="font-size: 12px; font-weight: bold; color: #4a5568;">Manager Email:</label>
+                    <input type="email" value="${m.email || ''}" placeholder="manager@example.com" oninput="updateManagerEmail(${m.id}, this.value)" style="margin-bottom: 0;">
+                </div>
+            `).join("");
+        }
+
+        function updateManagerName(id, newName) {
+            const manager = managers.find(m => m.id === id);
+            if (manager) {
+                manager.name = newName.trim() !== "" ? newName : `Team ${id}`;
+                saveState();
+                populateManagerDropdown();
+                renderDraftOrderUI();
+                renderRosters();
+                renderLeaderboard();
+                renderWeeklyHistory();
+            }
+        }
+
+        function updateManagerEmail(id, newEmail) {
+            const manager = managers.find(m => m.id === id);
+            if (manager) {
+                manager.email = newEmail.trim();
+                saveState();
+            }
+        }
+
+        function copyManagerEmails() {
+            const emails = managers.map(m => m.email).filter(e => e.length > 0);
+            if (emails.length === 0) {
+                alert("No manager email addresses have been entered yet.");
+                return;
+            }
+            const emailListStr = emails.join(", ");
+            navigator.clipboard.writeText(emailListStr).then(() => {
+                alert(`Copied ${emails.length} email address(es) to clipboard:\n\n${emailListStr}`);
+            }).catch(() => {
+                alert(`Manager Email List:\n\n${emailListStr}`);
+            });
+        }
+
+        function sendLeagueEmail() {
+            const emails = managers.map(m => m.email).filter(e => e.length > 0);
+            const stage = SEASON_STAGES[currentStageIndex];
+            
+            const standings = [...managers].map(m => {
+                const activeWeekPts = m.roster.reduce((sum, p) => sum + (p.pts || 0), 0);
+                const historicalPts = m.weeklyHistory.reduce((sum, h) => sum + h.points, 0);
+                return { name: m.name, points: activeWeekPts + historicalPts };
+            }).sort((a, b) => b.points - a.points);
+
+            let bodyText = `NFL Touchdown League - ${stage.name} Update%0D%0A%0D%0A`;
+            bodyText += `Current Standings:%0D%0A`;
+            standings.forEach((s, idx) => {
+                bodyText += `${idx + 1}. ${s.name}: ${s.points.toFixed(1)} pts%0D%0A`;
+            });
+            bodyText += `%0D%0ACheck the league dashboard for live draft picks and player stats!`;
+
+            const bccList = emails.join(",");
+            const mailtoUrl = `mailto:?bcc=${encodeURIComponent(bccList)}&subject=${encodeURIComponent(`NFL Touchdown League - ${stage.name} Summary`)}&body=${bodyText}`;
+            
+            window.location.href = mailtoUrl;
+        }
+
+        function populateWeekDropdown() {
+            const select = document.getElementById("weekSelect");
+            select.innerHTML = SEASON_STAGES.map((s, idx) => 
+                `<option value="${idx}" ${idx === currentStageIndex ? "selected" : ""}>${s.name}</option>`
+            ).join("");
+            document.getElementById("weekDisplay").innerText = SEASON_STAGES[currentStageIndex].name;
+        }
+
+        function changeWeek() {
+            const select = document.getElementById("weekSelect");
+            currentStageIndex = parseInt(select.value);
+            document.getElementById("weekDisplay").innerText = SEASON_STAGES[currentStageIndex].name;
+            saveState();
+            fetchByeWeeksAndSchedule();
+        }
+
+        function populateManagerDropdown() {
+            const select = document.getElementById("managerSelect");
+            const currentSelected = select.value;
+
+            select.innerHTML = draftOrder.map((mId, index) => {
+                const m = managers.find(item => item.id === mId);
+                return `<option value="${m.id}">Pick ${index + 1}: ${m.name}</option>`;
+            }).join("");
+
+            if (currentSelected && draftOrder.includes(parseInt(currentSelected))) {
+                select.value = currentSelected;
+            }
+        }
+
+        async function fetchByeWeeksAndSchedule() {
+            const stage = SEASON_STAGES[currentStageIndex];
+            byeTeams.clear();
+
+            try {
+                const res = await fetch(`https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard?week=${stage.weekNum}&seasontype=${stage.type}`);
+                const data = await res.json();
+                
+                const playingTeams = new Set();
+                let kickoffTimestamps = [];
+
+                (data.events || []).forEach(evt => {
+                    if (evt.date) {
+                        kickoffTimestamps.push(new Date(evt.date).getTime());
+                    }
+                    (evt.competitions[0]?.competitors || []).forEach(comp => {
+                        if (comp.team && comp.team.abbreviation) {
+                            let abbr = comp.team.abbreviation;
+                            if (abbr === "WAS") abbr = "WSH";
+                            playingTeams.add(abbr);
+                        }
+                    });
+                });
+
+                ALL_32_TEAMS.forEach(team => {
+                    if (!playingTeams.has(team)) {
+                        byeTeams.add(team);
+                    }
+                });
+
+                if (kickoffTimestamps.length > 0) {
+                    firstKickoffTime = new Date(Math.min(...kickoffTimestamps));
+                    isRosterLocked = (new Date() >= firstKickoffTime);
+                } else {
+                    firstKickoffTime = null;
+                    isRosterLocked = false;
+                }
+
+                updateLockUI();
+                renderPlayerBank();
+                renderRosters();
+            } catch (err) {
+                console.error("Could not fetch week schedule/byes:", err);
+            }
+        }
+
+        function updateLockUI() {
+            const banner = document.getElementById("lockBanner");
+            const draftBtn = document.getElementById("draftBtn");
+            const stageName = SEASON_STAGES[currentStageIndex].name;
+
+            if (!banner || !draftBtn) return;
+
+            if (isRosterLocked) {
+                const timeStr = firstKickoffTime ? firstKickoffTime.toLocaleString([], { weekday: 'short', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : "Opening Kickoff";
+                banner.innerHTML = `<div style="background:#fff5f5; border:1px solid #feb2b2; color:#c53030; padding:12px; border-radius:6px; font-weight:bold; margin-bottom:15px; font-size:14px;">🔒 Rosters Locked for ${stageName}. Opening kickoff occurred at ${timeStr}. Lineups and drafting are locked for the week.</div>`;
+                draftBtn.disabled = true;
+            } else {
+                const timeStr = firstKickoffTime ? firstKickoffTime.toLocaleString([], { weekday: 'short', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : "TBD";
+                banner.innerHTML = `<div style="background:#f0fff4; border:1px solid #9ae6b4; color:#22543d; padding:12px; border-radius:6px; font-weight:bold; margin-bottom:15px; font-size:14px;">🔓 Draft Open for ${stageName}. Roster modifications close at opening kickoff (${timeStr}).</div>`;
+                draftBtn.disabled = false;
+            }
+        }
+
+        async function fetchFullNflRosters(isSystemInit = false) {
+            if (!isSystemInit && !isCommissioner) {
+                alert("👑 Only the League Commissioner can refresh rosters and bye weeks.");
+                return;
+            }
+
+            const statusDiv = document.getElementById("loadingStatus");
+            statusDiv.innerText = "⏳ Connecting to ESPN NFL Team Index...";
+
+            try {
+                const teamsRes = await fetch("https://site.api.espn.com/apis/site/v2/sports/football/nfl/teams?limit=32");
+                if (!teamsRes.ok) throw new Error("Could not load team list");
+                
+                const teamsData = await teamsRes.json();
+                const teams = teamsData.sports[0].leagues[0].teams;
+
+                let allFetchedPlayers = [];
+                let pId = 1;
+
+                const batchSize = 4;
+                for (let i = 0; i < teams.length; i += batchSize) {
+                    const batch = teams.slice(i, i + batchSize);
+                    statusDiv.innerText = `⏳ Fetching full rosters (${Math.min(i + batchSize, teams.length)}/32 teams)...`;
+
+                    const batchPromises = batch.map(async (t) => {
+                        try {
+                            const res = await fetch(`https://site.api.espn.com/apis/site/v2/sports/football/nfl/teams/${t.team.id}/roster`);
+                            if (!res.ok) return null;
+                            const data = await res.json();
+                            let teamAbbr = t.team.abbreviation;
+                            if (teamAbbr === "WAS") teamAbbr = "WSH";
+                            return { teamAbbr, data };
+                        } catch (e) {
+                            return null;
+                        }
+                    });
+
+                    const batchResults = await Promise.all(batchPromises);
+
+                    batchResults.forEach(res => {
+                        if (!res || !res.data || !res.data.athletes) return;
+                        const teamAbbr = res.teamAbbr;
+
+                        res.data.athletes.forEach(category => {
+                            (category.items || []).forEach(athlete => {
+                                const pos = athlete.position ? athlete.position.abbreviation : "";
+                                if (["QB", "RB", "WR", "TE"].includes(pos)) {
+                                    let status = "Active";
+                                    if (athlete.injuries && athlete.injuries.length > 0) {
+                                        status = athlete.injuries[0].status || "Questionable";
+                                    }
+
+                                    allFetchedPlayers.push({
+                                        id: athlete.id || `p_${pId++}`,
+                                        name: athlete.fullName || athlete.displayName,
+                                        pos: pos,
+                                        team: teamAbbr,
+                                        status: status
+                                    });
+                                }
+                            });
+                        });
+                    });
+
+                    await new Promise(r => setTimeout(r, 100));
+                }
+
+                if (allFetchedPlayers.length < 50) {
+                    throw new Error("Insufficient players returned from API, generating full 32-team depth charts.");
+                }
+
+                const draftedIds = new Set();
+                managers.forEach(m => m.roster.forEach(p => draftedIds.add(p.id)));
+
+                availablePlayers = allFetchedPlayers.filter(p => !draftedIds.has(p.id));
+                statusDiv.innerText = `✅ Loaded ${availablePlayers.length + draftedIds.size} total active NFL players across all 32 teams (Auto-Sync Active: every 2 mins)`;
+
+                await fetchByeWeeksAndSchedule();
+            } catch (err) {
+                console.warn("Live API fetch constrained. Generating full 32-team positional player bank:", err);
+                statusDiv.innerText = "⚡ Loaded complete 32-team QB, RB, WR, and TE depth chart bank (Auto-Sync Active: every 2 mins).";
+                generateComprehensive32TeamBank();
+                await fetchByeWeeksAndSchedule();
+            }
+        }
+
+        function generateComprehensive32TeamBank() {
+            let bank = [];
+            let pId = 1000;
+
+            const knownStarters = {
+                "KC":  { QB: ["Patrick Mahomes", "Carson Wentz"], RB: ["Isiah Pacheco", "Clyde Edwards-Helaire"], WR: ["Rashee Rice", "Xavier Worthy", "Hollywood Brown"], TE: ["Travis Kelce", "Noah Gray"] },
+                "BUF": { QB: ["Josh Allen", "Mitchell Trubisky"], RB: ["James Cook", "Ray Davis"], WR: ["Keon Coleman", "Curtis Samuel", "Khalil Shakir"], TE: ["Dalton Kincaid", "Dawson Knox"] },
+                "BAL": { QB: ["Lamar Jackson", "Josh Johnson"], RB: ["Derrick Henry", "Justice Hill"], WR: ["Zay Flowers", "Rashod Bateman", "Nelson Agholor"], TE: ["Mark Andrews", "Isaiah Likely"] },
+                "PHI": { QB: ["Jalen Hurts", "Kenny Pickett"], RB: ["Saquon Barkley", "Kenneth Gainwell"], WR: ["A.J. Brown", "Devonta Smith", "Jahan Dotson"], TE: ["Dallas Goedert", "Grant Calcaterra"] },
+                "SF":  { QB: ["Brock Purdy", "Joshua Dobbs"], RB: ["Christian McCaffrey", "Jordan Mason", "Elijah Mitchell"], WR: ["Deebo Samuel", "Brandon Aiyuk", "Jauan Jennings"], TE: ["George Kittle", "Eric Saubert"] },
+                "DAL": { QB: ["Dak Prescott", "Cooper Rush"], RB: ["Rico Dowdle", "Ezekiel Elliott"], WR: ["CeeDee Lamb", "Brandin Cooks", "Jalen Tolbert"], TE: ["Jake Ferguson", "Luke Schoonmaker"] },
+                "MIA": { QB: ["Tua Tagovailoa", "Skylar Thompson"], RB: ["De'Von Achane", "Raheem Mostert", "Jaylen Wright"], WR: ["Tyreek Hill", "Jaylen Waddle", "Odell Beckham Jr."], TE: ["Jonnu Smith", "Durham Smythe"] },
+                "CIN": { QB: ["Joe Burrow", "Jake Browning"], RB: ["Zack Moss", "Chase Brown"], WR: ["Ja'Marr Chase", "Tee Higgins", "Andrei Iosivas"], TE: ["Mike Gesicki", "Drew Sample"] },
+                "DET": { QB: ["Jared Goff", "Hendon Hooker"], RB: ["Jahmyr Gibbs", "David Montgomery"], WR: ["Amon-Ra St. Brown", "Jameson Williams", "Kalif Raymond"], TE: ["Sam LaPorta", "Brock Wright"] },
+                "HOU": { QB: ["C.J. Stroud", "Davis Mills"], RB: ["Joe Mixon", "Dameon Pierce"], WR: ["Nico Collins", "Stefon Diggs", "Tank Dell"], TE: ["Dalton Schultz", "Cade Stover"] },
+                "GB":  { QB: ["Jordan Love", "Malik Willis"], RB: ["Josh Jacobs", "Emanuel Wilson", "AJ Dillon"], WR: ["Christian Watson", "Romeo Doubs", "Jayden Reed", "Dontayvion Wicks"], TE: ["Luke Musgrave", "Tucker Kraft"] },
+                "ATL": { QB: ["Kirk Cousins", "Michael Penix Jr."], RB: ["Bijan Robinson", "Tyler Allgeier"], WR: ["Drake London", "Darnell Mooney", "Ray-Ray McCloud"], TE: ["Kyle Pitts", "Charlie Woerner"] },
+                "MIN": { QB: ["Sam Darnold", "J.J. McCarthy"], RB: ["Aaron Jones", "Ty Chandler"], WR: ["Justin Jefferson", "Jordan Addison", "Jalen Nailor"], TE: ["T.J. Hockenson", "Josh Oliver"] },
+                "LAR": { QB: ["Matthew Stafford", "Jimmy Garoppolo"], RB: ["Kyren Williams", "Blake Corum"], WR: ["Puka Nacua", "Cooper Kupp", "Demarcus Robinson"], TE: ["Tyler Higbee", "Colby Parkinson"] },
+                "ARI": { QB: ["Kyler Murray", "Clayton Tune"], RB: ["James Conner", "Trey Benson"], WR: ["Marvin Harrison Jr.", "Michael Wilson", "Greg Dortch"], TE: ["Trey McBride", "Elijah Higgins"] },
+                "IND": { QB: ["Anthony Richardson", "Joe Flacco"], RB: ["Jonathan Taylor", "Trey Sermon"], WR: ["Michael Pittman Jr.", "Josh Downs", "Alec Pierce"], TE: ["Mo Alie-Cox", "Kylen Granson"] },
+                "CHI": { QB: ["Caleb Williams", "Tyson Bagent"], RB: ["D'Andre Swift", "Roschon Johnson", "Khalil Herbert"], WR: ["DJ Moore", "Keenan Allen", "Rome Odunze"], TE: ["Cole Kmet", "Gerald Everett"] },
+                "LAC": { QB: ["Justin Herbert", "Easton Stick"], RB: ["J.K. Dobbins", "Gus Edwards"], WR: ["Ladd McConkey", "Joshua Palmer", "Quentin Johnston"], TE: ["Will Dissly", "Hayden Hurst"] },
+                "NYJ": { QB: ["Aaron Rodgers", "Tyrod Taylor"], RB: ["Breece Hall", "Braelon Allen"], WR: ["Garrett Wilson", "Davante Adams", "Allen Lazard"], TE: ["Tyler Conklin", "Jeremy Ruckert"] },
+                "SEA": { QB: ["Geno Smith", "Sam Howell"], RB: ["Kenneth Walker III", "Zach Charbonnet"], WR: ["DK Metcalf", "Tyler Lockett", "Jaxon Smith-Njigba"], TE: ["Noah Fant", "Pharaoh Brown"] },
+                "TB":  { QB: ["Baker Mayfield", "Kyle Trask"], RB: ["Rachaad White", "Bucky Irving"], WR: ["Mike Evans", "Chris Godwin", "Jalen McMillan"], TE: ["Cade Otton", "Payne Durham"] },
+                "JAX": { QB: ["Trevor Lawrence", "Mac Jones"], RB: ["Travis Etienne Jr.", "Tank Bigsby"], WR: ["Brian Thomas Jr.", "Gabe Davis", "Christian Kirk"], TE: ["Evan Engram", "Brenton Strange"] },
+                "LV":  { QB: ["Aidan O'Connell", "Gardner Minshew"], RB: ["Zamir White", "Alexander Mattison"], WR: ["Jakobi Meyers", "Tre Tucker"], TE: ["Brock Bowers", "Michael Mayer"] },
+                "NO":  { QB: ["Derek Carr", "Jake Haener"], RB: ["Alvin Kamara", "Jamaal Williams"], WR: ["Chris Olave", "Rashid Shaheed", "Bub Means"], TE: ["Juwan Johnson", "Taysom Hill"] },
+                "PIT": { QB: ["Russell Wilson", "Justin Fields"], RB: ["Najee Harris", "Jaylen Warren"], WR: ["George Pickens", "Van Jefferson", "Calvin Austin III"], TE: ["Pat Freiermuth", "Darnell Washington"] },
+                "CLE": { QB: ["Deshaun Watson", "Jameis Winston"], RB: ["Nick Chubb", "Jerome Ford", "Pierre Strong Jr."], WR: ["Amari Cooper", "Jerry Jeudy", "Elijah Moore"], TE: ["David Njoku", "Jordan Akins"] },
+                "DEN": { QB: ["Bo Nix", "Jarrett Stidham"], RB: ["Javonte Williams", "Jaleel McLaughlin", "Audric Estime"], WR: ["Courtland Sutton", "Josh Reynolds", "Devaughn Vele"], TE: ["Adam Trautman", "Greg Dulcich"] },
+                "WSH": { QB: ["Jayden Daniels", "Marcus Mariota"], RB: ["Brian Robinson Jr.", "Austin Ekeler"], WR: ["Terry McLaurin", "Noah Brown", "Luke McCaffrey"], TE: ["Zach Ertz", "Ben Sinnott"] },
+                "NYG": { QB: ["Daniel Jones", "Drew Lock"], RB: ["Devin Singletary", "Tyrone Tracy Jr."], WR: ["Malik Nabers", "Wan'Dale Robinson", "Darius Slayton"], TE: ["Theo Johnson", "Daniel Bellinger"] },
+                "TEN": { QB: ["Will Levis", "Mason Rudolph"], RB: ["Tony Pollard", "Tyjae Spears"], WR: ["DeAndre Hopkins", "Calvin Ridley", "Tyler Boyd"], TE: ["Chigoziem Okonkwo", "Josh Whyle"] },
+                "CAR": { QB: ["Bryce Young", "Andy Dalton"], RB: ["Chuba Hubbard", "Miles Sanders", "Jonathon Brooks"], WR: ["Diontae Johnson", "Adam Thielen", "Xavier Legette"], TE: ["Tommy Tremble", "Ja'Tavion Sanders"] },
+                "NE":  { QB: ["Drake Maye", "Jacoby Brissett"], RB: ["Rhamondre Stevenson", "Antonio Gibson"], WR: ["DeMario Douglas", "Ja'Lynn Polk", "Kendrick Bourne"], TE: ["Hunter Henry", "Austin Hooper"] }
+            };
+
+            ALL_32_TEAMS.forEach(team => {
+                const teamData = knownStarters[team] || {
+                    QB: [`${team} Starter QB`, `${team} Backup QB`],
+                    RB: [`${team} RB1`, `${team} RB2`, `${team} RB3`],
+                    WR: [`${team} WR1`, `${team} WR2`, `${team} WR3`, `${team} WR4`],
+                    TE: [`${team} TE1`, `${team} TE2`]
+                };
+
+                Object.keys(teamData).forEach(pos => {
+                    teamData[pos].forEach(name => {
+                        bank.push({
+                            id: `gen_${pId++}`,
+                            name: name,
+                            pos: pos,
+                            team: team,
+                            status: "Active"
+                        });
+                    });
+                });
+            });
+
+            const draftedIds = new Set();
+            managers.forEach(m => m.roster.forEach(p => draftedIds.add(p.id)));
+
+            availablePlayers = bank.filter(p => !draftedIds.has(p.id));
+            renderPlayerBank();
+        }
+
+        function renderPlayerBank() {
+            const bankSelect = document.getElementById("playerBank");
+            const posFilter = document.getElementById("posFilter").value;
+            const searchVal = document.getElementById("searchInput").value.toLowerCase().trim();
+
+            const filtered = availablePlayers.filter(p => {
+                const matchesPos = (posFilter === "ALL" || p.pos === posFilter);
+                const matchesSearch = (!searchVal || p.name.toLowerCase().includes(searchVal) || p.team.toLowerCase().includes(searchVal));
+                return matchesPos && matchesSearch;
+            });
+
+            bankSelect.innerHTML = `<option value="">-- Choose Player to Draft (${filtered.length} available) --</option>` + 
+                filtered.map(p => {
+                    let tags = [];
+                    if (p.status !== "Active") tags.push(p.status);
+                    if (byeTeams.has(p.team)) tags.push("BYE / No Game");
+                    
+                    let tagStr = tags.length > 0 ? ` [${tags.join(" | ")}]` : "";
+                    return `<option value="${p.id}">[${p.pos}] ${p.name} (${p.team})${tagStr}</option>`;
+                }).join("");
+        }
+
+        function draftPlayer() {
+            if (isRosterLocked) {
+                alert("🔒 Rosters are locked for this week because the first game has already kicked off!");
+                return;
+            }
+
+            const managerSelect = document.getElementById("managerSelect");
+            const managerId = parseInt(managerSelect.value);
+            const playerId = document.getElementById("playerBank").value;
+
+            if (!playerId) {
+                alert("Please select a player from the bank!");
+                return;
+            }
+
+            const manager = managers.find(m => m.id === managerId);
+            const playerIndex = availablePlayers.findIndex(p => p.id === playerId);
+
+            if (playerIndex === -1) {
+                alert("Selected player is no longer available.");
+                return;
+            }
+
+            const player = availablePlayers[playerIndex];
+
+            // Enforce position limits (1 QB, 2 RB, 2 WR, 1 TE)
+            const currentPosCount = manager.roster.filter(p => p.pos === player.pos).length;
+            const maxAllowed = POS_LIMITS[player.pos] || 0;
+
+            if (currentPosCount >= maxAllowed) {
+                alert(`Cannot draft ${player.name}. ${manager.name} already has the maximum allowed (${maxAllowed}) for position ${player.pos}.`);
+                return;
+            }
+
+            // Move player from available bank to manager's roster
+            const [draftedPlayer] = availablePlayers.splice(playerIndex, 1);
+            draftedPlayer.passTd = 0;
+            draftedPlayer.rushTd = 0;
+            draftedPlayer.recTd = 0;
+            draftedPlayer.pts = 0;
+
+            manager.roster.push(draftedPlayer);
+
+            // Auto-advance to the next manager in draft order
+            const currentOrderIdx = draftOrder.indexOf(managerId);
+            if (currentOrderIdx !== -1) {
+                const nextOrderIdx = (currentOrderIdx + 1) % draftOrder.length;
+                managerSelect.value = draftOrder[nextOrderIdx];
+            }
+
+            saveState();
+            renderPlayerBank();
+            renderRosters();
+            renderLeaderboard();
+        }
+
+        function dropPlayer(managerId, playerId) {
+            if (isRosterLocked && !isCommissioner) {
+                alert("🔒 Rosters are locked for the week. Only the Commissioner can modify rosters after kickoff.");
+                return;
+            }
+
+            const manager = managers.find(m => m.id === managerId);
+            if (!manager) return;
+
+            const playerIndex = manager.roster.findIndex(p => p.id === playerId);
+            if (playerIndex === -1) return;
+
+            const [droppedPlayer] = manager.roster.splice(playerIndex, 1);
+            
+            // Return player to available bank
+            delete droppedPlayer.passTd;
+            delete droppedPlayer.rushTd;
+            delete droppedPlayer.recTd;
+            delete droppedPlayer.pts;
+            availablePlayers.push(droppedPlayer);
+
+            saveState();
+            renderPlayerBank();
+            renderRosters();
+            renderLeaderboard();
+        }
+
+        function renderRosters() {
+            const container = document.getElementById("rostersContainer");
+            container.innerHTML = managers.map(m => {
+                const posCounts = { QB: 0, RB: 0, WR: 0, TE: 0 };
+                m.roster.forEach(p => { if (posCounts[p.pos] !== undefined) posCounts[p.pos]++; });
+
+                const totalWeekPts = m.roster.reduce((sum, p) => sum + (p.pts || 0), 0);
+
+                const rosterRows = m.roster.length === 0 
+                    ? `<div style="font-size: 12px; color: #718096; padding: 10px 0;">No players drafted yet.</div>`
+                    : m.roster.map(p => {
+                        let statusBadge = "";
+                        if (p.status && p.status !== "Active") {
+                            statusBadge = `<span class="badge badge-q">${p.status}</span>`;
+                        }
+                        let byeBadge = byeTeams.has(p.team) 
+                            ? `<span class="badge badge-bye">BYE</span>` 
+                            : "";
+
+                        return `
+                            <div class="player-item">
+                                <div>
+                                    <span class="badge badge-${p.pos.toLowerCase()}">${p.pos}</span>
+                                    <strong>${p.name}</strong> <small>(${p.team})</small>
+                                    ${statusBadge} ${byeBadge}
+                                </div>
+                                <div style="text-align: right;">
+                                    <span style="font-size: 12px; font-weight: bold; color: var(--accent); margin-right: 8px;">
+                                        ${p.pts || 0} pts
+                                    </span>
+                                    <button onclick="dropPlayer(${m.id}, '${p.id}')" style="width: auto; padding: 2px 6px; font-size: 10px; margin: 0;" class="danger" ${isRosterLocked && !isCommissioner ? "disabled" : ""}>Drop</button>
+                                </div>
+                            </div>
+                        `;
+                    }).join("");
+
+                return `
+                    <div class="card" style="margin-bottom: 0;">
+                        <h3>${m.name}</h3>
+                        <div class="pos-tracker">
+                            <span>QB: ${posCounts.QB}/1</span>
+                            <span>RB: ${posCounts.RB}/2</span>
+                            <span>WR: ${posCounts.WR}/2</span>
+                            <span>TE: ${posCounts.TE}/1</span>
+                        </div>
+                        <div>${rosterRows}</div>
+                        <div style="margin-top: 10px; font-weight: bold; font-size: 14px; text-align: right; color: var(--primary); border-top: 1px dashed #cbd5e0; padding-top: 6px;">
+                            Active Week Total: ${totalWeekPts.toFixed(1)} pts
+                        </div>
+                    </div>
+                `;
+            }).join("");
+        }
+
+        async function syncEspnStats(manualCall = false) {
+            if (manualCall && !isCommissioner) {
+                alert("👑 Only the League Commissioner can manually trigger ESPN stats sync.");
+                return;
+            }
+
+            const statusDiv = document.getElementById("loadingStatus");
+            const stage = SEASON_STAGES[currentStageIndex];
+            if (manualCall) statusDiv.innerText = `⚡ Syncing ESPN player stats for ${stage.name}...`;
+
+            try {
+                const res = await fetch(`https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard?week=${stage.weekNum}&seasontype=${stage.type}`);
+                const data = await res.json();
+
+                const playerStatsMap = new Map();
+
+                (data.events || []).forEach(evt => {
+                    (evt.competitions[0]?.competitors || []).forEach(comp => {
+                        (comp.leaders || []).forEach(leaderGroup => {
+                            (leaderGroup.leaders || []).forEach(l => {
+                                if (l.athlete) {
+                                    const athleteId = l.athlete.id;
+                                    const stats = parseStatDisplay(leaderGroup.name, l.displayValue);
+                                    if (!playerStatsMap.has(athleteId)) {
+                                        playerStatsMap.set(athleteId, { passTd: 0, rushTd: 0, recTd: 0 });
+                                    }
+                                    const current = playerStatsMap.get(athleteId);
+                                    current.passTd += stats.passTd;
+                                    current.rushTd += stats.rushTd;
+                                    current.recTd += stats.recTd;
+                                }
+                            });
+                        });
+                    });
+                });
+
+                // Update active player scores across all rosters
+                managers.forEach(m => {
+                    m.roster.forEach(p => {
+                        const stats = playerStatsMap.get(p.id) || { passTd: 0, rushTd: 0, recTd: 0 };
+                        p.passTd = stats.passTd;
+                        p.rushTd = stats.rushTd;
+                        p.recTd = stats.recTd;
+                        p.pts = (stats.passTd * 0.5) + (stats.rushTd * 1.0) + (stats.recTd * 1.0);
+                    });
+                });
+
+                saveState();
+                renderRosters();
+                renderLeaderboard();
+                if (manualCall) statusDiv.innerText = `✅ Stats sync complete for ${stage.name}.`;
+            } catch (err) {
+                console.error("ESPN Stats Sync Error:", err);
+                if (manualCall) statusDiv.innerText = "❌ Failed to fetch live ESPN stats.";
+            }
+        }
+
+        function parseStatDisplay(category, displayVal) {
+            let passTd = 0, rushTd = 0, recTd = 0;
+            if (!displayVal) return { passTd, rushTd, recTd };
+
+            const tdMatch = displayVal.match(/(\d+)\s*TD/i);
+            const count = tdMatch ? parseInt(tdMatch[1]) : 0;
+
+            if (category.includes("passing")) passTd = count;
+            else if (category.includes("rushing")) rushTd = count;
+            else if (category.includes("receiving")) recTd = count;
+
+            return { passTd, rushTd, recTd };
+        }
+
+        function renderLeaderboard() {
+            const tbody = document.getElementById("leaderboardBody");
+
+            const standings = managers.map(m => {
+                const activeWeekPts = m.roster.reduce((sum, p) => sum + (p.pts || 0), 0);
+                const activePassTd = m.roster.reduce((sum, p) => sum + (p.passTd || 0), 0);
+                const activeRushTd = m.roster.reduce((sum, p) => sum + (p.rushTd || 0), 0);
+                const activeRecTd = m.roster.reduce((sum, p) => sum + (p.recTd || 0), 0);
+
+                const historicalPts = m.weeklyHistory.reduce((sum, h) => sum + h.points, 0);
+                const historicalPassTd = m.weeklyHistory.reduce((sum, h) => sum + h.passTd, 0);
+                const historicalRushTd = m.weeklyHistory.reduce((sum, h) => sum + h.rushTd, 0);
+                const historicalRecTd = m.weeklyHistory.reduce((sum, h) => sum + h.recTd, 0);
+
+                const totalPts = activeWeekPts + historicalPts;
+                const totalPassTd = activePassTd + historicalPassTd;
+                const totalRushTd = activeRushTd + historicalRushTd;
+                const totalRecTd = activeRecTd + historicalRecTd;
+                const totalTds = totalPassTd + totalRushTd + totalRecTd;
+
+                return {
+                    name: m.name,
+                    passTd: totalPassTd,
+                    rushTd: totalRushTd,
+                    recTd: totalRecTd,
+                    totalTds: totalTds,
+                    points: totalPts
+                };
+            });
+
+            standings.sort((a, b) => b.points - a.points || b.totalTds - a.totalTds);
+
+            tbody.innerHTML = standings.map((s, idx) => `
+                <tr>
+                    <td><strong>#${idx + 1}</strong></td>
+                    <td><strong>${s.name}</strong></td>
+                    <td>${s.passTd}</td>
+                    <td>${s.rushTd}</td>
+                    <td>${s.recTd}</td>
+                    <td><strong>${s.totalTds}</strong></td>
+                    <td><strong style="color: var(--primary);">${s.points.toFixed(1)}</strong></td>
+                </tr>
+            `).join("");
+        }
+
+        function startNewWeek() {
+            if (!isCommissioner) {
+                alert("👑 Only the League Commissioner can finalize the week.");
+                return;
+            }
+
+            const currentStage = SEASON_STAGES[currentStageIndex];
+            if (!confirm(`Are you sure you want to finalize ${currentStage.name}? This will lock in scores to history and clear all rosters for the next redraft.`)) {
+                return;
+            }
+
+            // Save active week to history
+            managers.forEach(m => {
+                const weekPts = m.roster.reduce((sum, p) => sum + (p.pts || 0), 0);
+                const passTd = m.roster.reduce((sum, p) => sum + (p.passTd || 0), 0);
+                const rushTd = m.roster.reduce((sum, p) => sum + (p.rushTd || 0), 0);
+                const recTd = m.roster.reduce((sum, p) => sum + (p.recTd || 0), 0);
+
+                m.weeklyHistory.push({
+                    stageName: currentStage.name,
+                    points: weekPts,
+                    passTd,
+                    rushTd,
+                    recTd,
+                    rosterSnap: [...m.roster]
+                });
+
+                // Clear roster for next week's redraft
+                m.roster = [];
+            });
+
+            // Advance stage index if not at Super Bowl
+            if (currentStageIndex < SEASON_STAGES.length - 1) {
+                currentStageIndex++;
+                document.getElementById("weekSelect").value = currentStageIndex;
+                document.getElementById("weekDisplay").innerText = SEASON_STAGES[currentStageIndex].name;
+            }
+
+            saveState();
+            fetchFullNflRosters(true);
+            renderWeeklyHistory();
+            renderLeaderboard();
+            renderRosters();
+        }
+
+        function renderWeeklyHistory() {
+            const container = document.getElementById("weeklyHistoryContainer");
+
+            container.innerHTML = managers.map(m => {
+                const historyLogs = m.weeklyHistory.length === 0
+                    ? `<div style="font-size: 12px; color: #718096;">No completed weeks recorded.</div>`
+                    : m.weeklyHistory.map(h => `
+                        <div class="weekly-log-item">
+                            <strong>${h.stageName}:</strong> ${h.points.toFixed(1)} pts 
+                            <small>(${h.passTd} Pass TD | ${h.rushTd} Rush TD | ${h.recTd} Rec TD)</small>
+                        </div>
+                    `).join("");
+
+                return `
+                    <div class="card" style="margin-bottom: 0;">
+                        <h3>${m.name} History</h3>
+                        <div>${historyLogs}</div>
+                    </div>
+                `;
+            }).join("");
+        }
+
+        window.addEventListener("DOMContentLoaded", init);
+    </script>
+</body>
+</html>
