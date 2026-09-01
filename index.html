@@ -51,10 +51,63 @@
         .order-item { display: flex; align-items: center; justify-content: space-between; background: #f8fafc; border: 1px solid #e2e8f0; padding: 6px 12px; border-radius: 4px; margin-bottom: 6px; font-size: 13px; }
         .order-btn-group { display: flex; gap: 4px; width: auto; }
         .order-btn-group button { padding: 2px 8px; margin: 0; font-size: 12px; width: auto; }
+
+        /* ---- Auth gate ---- */
+        #authGate { position: fixed; inset: 0; background: linear-gradient(135deg, #013369, #002244); display: flex; align-items: center; justify-content: center; padding: 20px; z-index: 1000; }
+        #authGate .auth-card { background: var(--card-bg); max-width: 420px; width: 100%; padding: 32px; border-radius: 12px; box-shadow: 0 10px 40px rgba(0,0,0,0.35); }
+        #authGate h2 { text-align: center; margin-bottom: 6px; }
+        #authGate .auth-sub { text-align: center; color: #4a5568; font-size: 14px; margin-bottom: 22px; }
+        #authGate .auth-divider { text-align: center; color: #a0aec0; font-size: 12px; margin: 14px 0; text-transform: uppercase; letter-spacing: 1px; }
+        #authGate .google-btn { background: #fff; color: #1a1a1a; border: 1px solid #cbd5e0; display: flex; align-items: center; justify-content: center; gap: 10px; }
+        #authGate .google-btn:hover { background: #f7fafc; }
+        #authMsg { font-size: 13px; text-align: center; margin-top: 12px; min-height: 18px; }
+        #authMsg.err { color: var(--danger); }
+        #authMsg.ok { color: #2b8a3e; }
+        #authSetupNotice { background: #fffaf0; border: 1px solid #f6ad55; color: #7b341e; font-size: 12px; padding: 12px; border-radius: 6px; margin-bottom: 18px; line-height: 1.5; }
+        #authSetupNotice code { background: #fff; padding: 1px 4px; border-radius: 3px; }
+        .auth-bar { display: flex; align-items: center; justify-content: space-between; gap: 12px; background: #e6fffa; border: 1px solid #81e6d9; padding: 8px 14px; border-radius: 6px; margin-bottom: 15px; font-size: 13px; }
+        .auth-bar button { width: auto; margin: 0; padding: 6px 14px; background: #718096; }
+        .auth-bar button:hover { background: #4a5568; }
+        body.app-locked .container { display: none; }
     </style>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.58.0/dist/umd/supabase.min.js"></script>
 </head>
-<body>
+<body class="app-locked">
+    <div id="authGate">
+        <div class="auth-card">
+            <h2>🏈 Touchdown League</h2>
+            <p class="auth-sub">Sign in to access your league.</p>
+
+            <div id="authSetupNotice" hidden>
+                <strong>⚙️ Supabase not configured yet.</strong><br>
+                Add your project URL and anon key to <code>SUPABASE_URL</code> /
+                <code>SUPABASE_ANON_KEY</code> near the top of the page script, then
+                set the Site URL &amp; Redirect URLs in your Supabase dashboard.
+                See <code>AUTH_SETUP.md</code> for the full walkthrough.
+            </div>
+
+            <div id="authControls">
+                <label for="authEmail"><strong>Email a magic link (no password)</strong></label>
+                <input type="email" id="authEmail" placeholder="you@example.com" autocomplete="email">
+                <button id="magicLinkBtn" onclick="signInWithMagicLink()">✉️ Send me a login link</button>
+
+                <div class="auth-divider">or</div>
+
+                <button class="google-btn" onclick="signInWithGoogle()">
+                    <svg width="18" height="18" viewBox="0 0 48 48" aria-hidden="true"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>
+                    Continue with Google
+                </button>
+            </div>
+
+            <div id="authMsg"></div>
+        </div>
+    </div>
+
     <div class="container">
+        <div class="auth-bar">
+            <span>Signed in as <strong id="authUserEmail">…</strong></span>
+            <button onclick="signOut()">Sign out</button>
+        </div>
         <h1>🏈 NFL Touchdown League (8-Player Weekly Redraft)</h1>
 
         <div class="commish-bar">
@@ -167,6 +220,119 @@
     </div>
 
     <script>
+        /* ============================================================
+           SUPABASE AUTH CONFIG
+           ------------------------------------------------------------
+           1. Create a project at https://supabase.com and paste its
+              Project URL + anon (publishable) key below. The anon key
+              is designed to be public — safe to ship in client code.
+           2. In the Supabase dashboard set BOTH of these so email
+              confirmation / magic links come back to the right place
+              instead of localhost (this is what caused the phone bug):
+                Authentication > URL Configuration
+                  Site URL:      https://your-deployed-domain
+                  Redirect URLs: https://your-deployed-domain/**
+                                 http://localhost:8000/**   (for local dev)
+           3. To offer "Continue with Google": Authentication > Providers
+              > Google, enable it, and add your OAuth client credentials.
+           4. COMMISSIONER_EMAILS controls who gets commissioner tools —
+              replaced the old shared "0988" passcode with real identity.
+           See AUTH_SETUP.md for the full walkthrough.
+           ============================================================ */
+        const SUPABASE_URL = "YOUR_SUPABASE_PROJECT_URL";
+        const SUPABASE_ANON_KEY = "YOUR_SUPABASE_ANON_KEY";
+        const COMMISSIONER_EMAILS = [
+            // "commissioner@example.com"
+        ];
+
+        const supabaseConfigured =
+            SUPABASE_URL && SUPABASE_ANON_KEY &&
+            !SUPABASE_URL.startsWith("YOUR_") && !SUPABASE_ANON_KEY.startsWith("YOUR_");
+
+        const supabaseClient = supabaseConfigured
+            ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
+            : null;
+
+        let currentUser = null;
+        let isCommissionerEntitled = false;   // derived from the signed-in identity
+        let appInitialized = false;
+
+        function setAuthMsg(text, kind) {
+            const el = document.getElementById("authMsg");
+            el.textContent = text || "";
+            el.className = kind || "";
+        }
+
+        async function signInWithMagicLink() {
+            if (!supabaseClient) return;
+            const email = document.getElementById("authEmail").value.trim();
+            if (!email) { setAuthMsg("Enter your email first.", "err"); return; }
+            setAuthMsg("Sending link…");
+            // emailRedirectTo follows the ACTUAL host/device the user is on,
+            // so a link opened on a phone returns to the phone — not localhost.
+            const { error } = await supabaseClient.auth.signInWithOtp({
+                email,
+                options: { emailRedirectTo: window.location.origin + window.location.pathname }
+            });
+            setAuthMsg(
+                error ? error.message : "Check your inbox for a login link — open it on this device.",
+                error ? "err" : "ok"
+            );
+        }
+
+        async function signInWithGoogle() {
+            if (!supabaseClient) return;
+            const { error } = await supabaseClient.auth.signInWithOAuth({
+                provider: "google",
+                options: { redirectTo: window.location.origin + window.location.pathname }
+            });
+            if (error) setAuthMsg(error.message, "err");
+        }
+
+        async function signOut() {
+            if (!supabaseClient) return;
+            await supabaseClient.auth.signOut();
+            // Full reload returns to the locked gate cleanly.
+            window.location.reload();
+        }
+
+        function applySession(session) {
+            currentUser = session ? session.user : null;
+            if (currentUser) {
+                const email = (currentUser.email || "").toLowerCase();
+                isCommissionerEntitled = COMMISSIONER_EMAILS
+                    .map(e => e.toLowerCase())
+                    .includes(email);
+                document.getElementById("authUserEmail").textContent = currentUser.email || "user";
+                document.body.classList.remove("app-locked");
+                document.getElementById("authGate").hidden = true;
+                if (!appInitialized) {
+                    appInitialized = true;
+                    // isCommissioner (active view) starts from entitlement.
+                    isCommissioner = isCommissionerEntitled;
+                    init();
+                } else {
+                    updateRoleUI();
+                }
+            } else {
+                document.body.classList.add("app-locked");
+                document.getElementById("authGate").hidden = false;
+            }
+        }
+
+        async function bootstrapAuth() {
+            if (!supabaseClient) {
+                // Not configured — show setup notice and keep the app locked.
+                document.getElementById("authSetupNotice").hidden = false;
+                document.getElementById("authControls").hidden = true;
+                document.getElementById("authGate").hidden = false;
+                return;
+            }
+            supabaseClient.auth.onAuthStateChange((_event, session) => applySession(session));
+            const { data } = await supabaseClient.auth.getSession();
+            applySession(data.session);
+        }
+
         const STORAGE_KEY = "nfl_td_league_data_v1";
 
         const ALL_32_TEAMS = ["ARI","ATL","BAL","BUF","CAR","CHI","CIN","CLE","DAL","DEN","DET","GB","HOU","IND","JAX","KC","LV","LAC","LAR","MIA","MIN","NE","NO","NYG","NYJ","PHI","PIT","SF","SEA","TB","TEN","WSH"];
@@ -205,8 +371,9 @@
             const dataToSave = {
                 currentStageIndex,
                 draftOrder,
-                managers,
-                isCommissioner
+                managers
+                // isCommissioner is intentionally NOT persisted — commissioner
+                // rights are derived from the signed-in identity on each load.
             };
             try {
                 localStorage.setItem(STORAGE_KEY, JSON.stringify(dataToSave));
@@ -223,7 +390,7 @@
                 if (typeof parsed.currentStageIndex === "number") currentStageIndex = parsed.currentStageIndex;
                 if (Array.isArray(parsed.draftOrder)) draftOrder = parsed.draftOrder;
                 if (Array.isArray(parsed.managers)) managers = parsed.managers;
-                if (typeof parsed.isCommissioner === "boolean") isCommissioner = parsed.isCommissioner;
+                // isCommissioner is not restored from storage — see applySession().
             } catch (e) {
                 console.error("Could not parse saved league data:", e);
             }
@@ -245,18 +412,18 @@
         }
 
         function toggleCommissionerMode() {
+            // Commissioner rights now come from the signed-in identity
+            // (COMMISSIONER_EMAILS allow-list), not a shared passcode.
+            if (!isCommissionerEntitled) {
+                alert("👑 Commissioner tools are limited to league commissioners.\nAsk the commissioner to add your sign-in email to the allow-list.");
+                return;
+            }
             if (!isCommissioner) {
-                const pin = prompt("Enter League Commissioner Passcode:", "");
-                if (pin === "0988") {
-                    isCommissioner = true;
-                    alert("👑 Commissioner Access Granted!");
-                } else if (pin !== null) {
-                    alert("❌ Incorrect Passcode!");
-                    return;
-                }
+                isCommissioner = true;
+                alert("👑 Commissioner tools enabled.");
             } else {
                 isCommissioner = false;
-                alert("👤 Switched to Manager Mode.");
+                alert("👤 Previewing Manager View.");
             }
             saveState();
             updateRoleUI();
@@ -1018,7 +1185,8 @@
             }).join("");
         }
 
-        window.addEventListener("DOMContentLoaded", init);
+        // Gate the app behind authentication; init() runs only once signed in.
+        window.addEventListener("DOMContentLoaded", bootstrapAuth);
     </script>
 </body>
 </html>
