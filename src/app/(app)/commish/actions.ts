@@ -14,13 +14,12 @@ import {
   getStages,
   getStageById,
   getManagers,
-  getProfiles,
   getDraftOrder,
   getRosterPicks,
 } from "@/lib/db";
 import { generateDraftOrder, type StandingsSeed } from "@/lib/draftOrder";
 import { computeStandings } from "@/lib/standings";
-import type { PlayerStageStats, DraftOrderRow } from "@/lib/types";
+import type { PlayerStageStats } from "@/lib/types";
 import type {
   ActionResult,
   ManualRosterEditInput,
@@ -417,14 +416,4 @@ export async function triggerSyncAction(source: SyncSourceTrigger): Promise<Acti
       message: `Couldn't reach ${fnName} — it may not be deployed yet. See supabase/functions/README.md.`,
     };
   }
-}
-
-// Re-exported so the client components in this route can call the same
-// read helpers server actions use without duplicating query logic.
-export async function getAllProfilesAction() {
-  return getProfiles();
-}
-
-export async function getDraftOrderAction(stageId: number): Promise<DraftOrderRow[]> {
-  return getDraftOrder(stageId);
 }

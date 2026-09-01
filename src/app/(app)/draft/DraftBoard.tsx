@@ -3,8 +3,7 @@
 import { useCallback, useEffect, useMemo, useState, useTransition } from "react";
 import type { DraftOrderRow, Player, Profile, RosterPick } from "@/lib/types";
 import { subscribeToDraft } from "@/lib/realtime";
-import { getRosterPicksClient } from "@/lib/db/roster";
-import { getDraftOrderClient } from "@/lib/db/draftOrder";
+import { createClient } from "@/lib/supabase/client";
 import { computeCurrentPick } from "@/components/draft/draftLogic";
 import { DraftOrderStrip } from "@/components/draft/DraftOrderStrip";
 import { PlayerPool } from "@/components/draft/PlayerPool";
@@ -40,10 +39,22 @@ export function DraftBoard({
   const [draftingPlayerId, setDraftingPlayerId] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
+  // NOTE: src/lib/db/roster.ts and draftOrder.ts export *Client variants
+  // (getRosterPicksClient / getDraftOrderClient), but those files also
+  // import the server Supabase client (next/headers) at module scope, so
+  // pulling them into a "use client" bundle breaks the build. Query the
+  // same tables directly with the browser client here instead — same
+  // shape, same RLS (select-authenticated on both tables).
   const refreshPicks = useCallback(async () => {
     try {
-      const fresh = await getRosterPicksClient(stageId);
-      setPicks(fresh);
+      const supabase = createClient();
+      const { data, error } = await supabase
+        .from("roster_picks")
+        .select("*")
+        .eq("stage_id", stageId)
+        .order("pick_number", { ascending: true });
+      if (error) throw error;
+      setPicks((data ?? []) as RosterPick[]);
     } catch {
       // Realtime refresh best-effort — a stale view will self-correct on
       // the next event or page reload.
@@ -52,8 +63,14 @@ export function DraftBoard({
 
   const refreshDraftOrder = useCallback(async () => {
     try {
-      const fresh = await getDraftOrderClient(stageId);
-      setDraftOrder(fresh);
+      const supabase = createClient();
+      const { data, error } = await supabase
+        .from("draft_order")
+        .select("*")
+        .eq("stage_id", stageId)
+        .order("pick_number", { ascending: true });
+      if (error) throw error;
+      setDraftOrder((data ?? []) as DraftOrderRow[]);
     } catch {
       // Best-effort, see refreshPicks.
     }
