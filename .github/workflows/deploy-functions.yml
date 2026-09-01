@@ -1,0 +1,46 @@
+name: Deploy Supabase Edge Functions
+
+# Deploys the ESPN sync Edge Functions (supabase/functions/*) to Supabase.
+# This lets function deploys happen straight from GitHub — no local Supabase
+# CLI or computer required.
+#
+# ONE-TIME SETUP (in GitHub): add a repository secret named
+# SUPABASE_ACCESS_TOKEN (GitHub repo -> Settings -> Secrets and variables ->
+# Actions -> New repository secret). Get the token value from Supabase ->
+# account menu (top-right) -> Account Settings -> Access Tokens -> Generate.
+#
+# The project ref below is public (it's in your Supabase URL), so it's fine
+# to hardcode — the access token is the only secret.
+
+on:
+  push:
+    branches:
+      - main
+      - claude/tds-only-league-rewrite-zla016
+    paths:
+      - "supabase/functions/**"
+      - ".github/workflows/deploy-functions.yml"
+  workflow_dispatch: {}
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      PROJECT_REF: kqocfobichfvtsllkgdo
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Supabase CLI
+        uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: Deploy Edge Functions
+        run: |
+          set -euo pipefail
+          for fn in sync-players sync-schedule sync-scores apply-locks; do
+            echo "::group::Deploying $fn"
+            supabase functions deploy "$fn" --project-ref "$PROJECT_REF"
+            echo "::endgroup::"
+          done
