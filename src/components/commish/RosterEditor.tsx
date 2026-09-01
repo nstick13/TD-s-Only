@@ -98,11 +98,13 @@ export function RosterEditor({ stages, managers }: RosterEditorProps) {
       setMessage({ text: "Pick a player to remove and/or add first.", ok: false });
       return;
     }
+    const currentStageId = stageId;
+    const currentManagerId = managerId;
     setMessage(null);
     startTransition(async () => {
       const result = await manualRosterEditAction({
-        stageId: stageId as number,
-        managerId: managerId as string,
+        stageId: currentStageId,
+        managerId: currentManagerId,
         removePlayerId: removePlayerId || undefined,
         addPlayerId: addPlayerId || undefined,
         slotPosition: addPlayerId ? slotPosition : undefined,
@@ -114,9 +116,7 @@ export function RosterEditor({ stages, managers }: RosterEditorProps) {
         router.refresh();
         // Also refetch this component's own roster/pool immediately
         // rather than waiting on the parent server component re-render.
-        if (stageId !== "" && managerId !== "") {
-          void loadRosterAndPool(stageId, managerId);
-        }
+        void loadRosterAndPool(currentStageId, currentManagerId);
       }
     });
   }
